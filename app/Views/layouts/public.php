@@ -15,7 +15,7 @@
       <a class="navbar-brand d-flex align-items-center gap-2" href="<?= base_url('/') ?>">
         <img
           class="navbar-logo"
-          src="<?= base_url('assets/img/dps-logo.svg') ?>"
+          src="<?= base_url('assets/img/dps-logo.png') ?>"
           alt="Digital Pencak Silat"
         >
         <span class="visually-hidden">DPS Complain</span>
@@ -48,7 +48,7 @@
 
   <?= $this->renderSection('content') ?>
 
-  <footer class="py-4 text-center text-muted small">
+  <footer class="public-footer py-4 text-center small">
     © 2026 Digital Pencak Silat. All Rights Reserved.
   </footer>
 
