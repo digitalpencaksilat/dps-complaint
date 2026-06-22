@@ -1,0 +1,4 @@
+<?= $this->extend('layouts/public') ?>
+<?= $this->section('content') ?>
+<section class="public-shell"><div class="container"><div class="row justify-content-center"><div class="col-md-5"><div class="complaint-card"><div class="complaint-card-header"><h1 class="complaint-title">Login Admin</h1></div><div class="card-body p-4"><?php if(session('error')): ?><div class="alert alert-danger"><?= esc(session('error')) ?></div><?php endif; ?><form method="post" action="<?= base_url('admin/login') ?>"><?= csrf_field() ?><input class="form-control mb-3" name="username" placeholder="Username" required><input class="form-control mb-3" type="password" name="password" placeholder="Password" required><button class="btn btn-dps w-100">Masuk</button></form></div></div></div></div></div></section>
+<?= $this->endSection() ?>
