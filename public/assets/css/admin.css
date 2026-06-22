@@ -60,7 +60,7 @@ body.admin-body {
   height: 54px;
   object-fit: contain;
   border-radius: 14px;
-  background: #111;
+  background: transparent;
 }
 
 .admin-brand-title,
