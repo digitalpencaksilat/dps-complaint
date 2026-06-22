@@ -177,6 +177,10 @@ body.admin-body {
 .stat-card {
   --stat-color: var(--brand-primary);
   position: relative;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
   min-height: 116px;
   padding: 16px;
   border-radius: 20px;
@@ -200,6 +204,8 @@ body.admin-body {
 .stat-card small {
   color: var(--admin-muted);
   font-weight: 700;
+  line-height: 1.25;
+  min-height: 2.5em;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -207,6 +213,7 @@ body.admin-body {
 .stat-card .h3 {
   color: var(--stat-color);
   font-weight: 800;
+  margin-bottom: 0;
 }
 
 .stat-card-total {
@@ -227,6 +234,14 @@ body.admin-body {
 
 .stat-card-selesai {
   --stat-color: #198754;
+}
+
+.stat-card-confirmed {
+  --stat-color: #198754;
+}
+
+.stat-card-unconfirmed {
+  --stat-color: #6c757d;
 }
 
 .stat-card-ditolak {
