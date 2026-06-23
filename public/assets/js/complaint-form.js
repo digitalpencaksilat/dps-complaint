@@ -9,9 +9,19 @@
   const stepButtons = [...form.querySelectorAll("[data-complaint-step-target]")];
   const stepPanes = [...form.querySelectorAll("[data-complaint-step]")];
   const stepCounter = form.querySelector("[data-complaint-step-counter]");
+  const modeRadios = [...form.querySelectorAll('[name="submission_mode"]')];
+  const modePanels = [...form.querySelectorAll("[data-mode-panel]")];
+  const confirmationInput = form.querySelector(".confirmation-contingent-search");
+  const confirmationIdInput = form.querySelector(".confirmation-contingent-id");
+  const confirmationResults = form.querySelector(".confirmation-contingent-results");
+  const confirmationMessage = form.querySelector("[data-confirmation-status-message]");
+  const submitButton = form.querySelector("[data-submit-button]");
+  const submitNote = form.querySelector("[data-submit-note]");
   const participantUrl =
     form.dataset.participantUrl || "/api/participants/search";
   const contingentUrl = form.dataset.contingentUrl || "/api/contingents/search";
+  const confirmationStatusUrl =
+    form.dataset.confirmationStatusUrl || "/api/contingents/confirmation-status";
   const complaintTypeLabels = {
     name_error: "Kesalahan Nama",
     gender_error: "Kesalahan Jenis Kelamin",
@@ -41,6 +51,7 @@
     },
   };
   let currentStep = 0;
+  let confirmationCanSubmit = true;
 
   const escapeHtml = (value) =>
     String(value ?? "").replace(
@@ -55,6 +66,9 @@
         })[char],
     );
 
+  const getSubmissionMode = () =>
+    form.querySelector('[name="submission_mode"]:checked')?.value || "complaint";
+
   async function search(url, q) {
     const eventId = eventSelect?.value || "";
     if (!eventId || q.trim().length < 2) return [];
@@ -66,6 +80,19 @@
     );
 
     return response.ok ? response.json() : [];
+  }
+
+  async function getConfirmationStatus(contingentId) {
+    const eventId = eventSelect?.value || "";
+    if (!eventId || !contingentId) return null;
+
+    const separator = confirmationStatusUrl.includes("?") ? "&" : "?";
+    const response = await fetch(
+      `${confirmationStatusUrl}${separator}event_id=${encodeURIComponent(eventId)}&contingent_id=${encodeURIComponent(contingentId)}`,
+      { headers: { Accept: "application/json" } },
+    );
+
+    return response.ok ? response.json() : null;
   }
 
   function renderParticipant(rows) {
@@ -101,6 +128,14 @@
       .join("");
   }
 
+  function setConfirmationMessage(message, state = "") {
+    if (!confirmationMessage) return;
+    confirmationMessage.textContent = message || "";
+    confirmationMessage.classList.toggle("text-danger", state === "error");
+    confirmationMessage.classList.toggle("text-success", state === "success");
+    confirmationMessage.classList.toggle("text-muted", !state);
+  }
+
   function updateDescriptionHelper(item) {
     const type = item.querySelector(".complaint-type")?.value || "name_error";
     const config = helpers[type] || helpers.name_error;
@@ -131,6 +166,43 @@
       ?.toggleAttribute("required", missing);
     item.querySelector(".contingent-id")?.toggleAttribute("required", missing);
     updateDescriptionHelper(item);
+  }
+
+  function updateModeState() {
+    const mode = getSubmissionMode();
+    modePanels.forEach((panel) => {
+      const active = panel.dataset.modePanel === mode;
+      panel.classList.toggle("d-none", !active);
+      panel.querySelectorAll("input, select, textarea").forEach((field) => {
+        field.disabled = !active;
+      });
+    });
+
+    form.querySelectorAll(".complaint-mode-card").forEach((card) => {
+      card.classList.toggle(
+        "active",
+        card.querySelector('input[type="radio"]')?.checked || false,
+      );
+    });
+
+    confirmationInput?.toggleAttribute("required", mode === "no_complaint");
+    confirmationIdInput?.toggleAttribute("required", mode === "no_complaint");
+
+    itemsBox?.querySelectorAll(".complaint-item").forEach(toggleType);
+
+    if (submitButton) {
+      submitButton.textContent =
+        mode === "no_complaint" ? "Simpan Konfirmasi" : "Simpan Complain";
+    }
+    if (submitNote) {
+      submitNote.textContent =
+        mode === "no_complaint"
+          ? "Konfirmasi Tidak Ada Complain dibuat setelah form lengkap dan tersimpan."
+          : "Tiket complain dibuat setelah form lengkap dan tersimpan.";
+    }
+
+    updateReviewSummary();
+    updateStepState();
   }
 
   function refreshStepVisibility() {
@@ -173,6 +245,14 @@
     item.querySelectorAll(".search-results").forEach((result) => {
       result.innerHTML = "";
     });
+  }
+
+  function resetConfirmationSearch() {
+    if (confirmationInput) confirmationInput.value = "";
+    if (confirmationIdInput) confirmationIdInput.value = "";
+    if (confirmationResults) confirmationResults.innerHTML = "";
+    confirmationCanSubmit = true;
+    setConfirmationMessage("");
   }
 
   function bindItem(item) {
@@ -262,6 +342,10 @@
     const valid = fields.every((field) => field.checkValidity());
 
     if (!valid && showError) focusFirstInvalid(index);
+    if (valid && showError && index === 1 && getSubmissionMode() === "no_complaint" && !confirmationCanSubmit) {
+      confirmationMessage?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return false;
+    }
     return valid;
   }
 
@@ -278,6 +362,7 @@
   }
 
   function updateReviewSummary() {
+    const mode = getSubmissionMode();
     const selectedOption = eventSelect?.selectedOptions?.[0];
     const eventText = selectedOption?.value ? selectedOption.textContent.trim() : "-";
     const items = [...itemsBox.querySelectorAll(".complaint-item")];
@@ -291,13 +376,22 @@
     };
 
     setText("[data-review-event]", eventText);
-    setText("[data-review-total-items]", `${items.length} item`);
+    setText(
+      "[data-review-total-items]",
+      mode === "no_complaint" ? "Tidak Ada Complain" : `${items.length} item`,
+    );
     setText("[data-review-official]", officialName || "-");
     setText("[data-review-phone]", officialPhone || "-");
     setText("[data-review-signature]", signatureValue ? "Sudah ada" : "Belum ada");
 
     const list = form.querySelector("[data-review-items]");
     if (!list) return;
+
+    if (mode === "no_complaint") {
+      const contingent = confirmationInput?.value.trim() || "Data belum dipilih";
+      list.innerHTML = `<div class="complaint-review-item confirmation-review-item"><span>Konfirmasi Kontingen</span><strong>${escapeHtml(contingent)}</strong><small>Tidak Ada Complain</small><p>Saya menyatakan data atlet kontingen sudah sesuai dengan data kejuaraan.</p></div>`;
+      return;
+    }
 
     if (!items.length) {
       list.innerHTML = '<div class="empty-result">Belum ada item complain.</div>';
@@ -370,12 +464,50 @@
     itemsBox.appendChild(clone);
     bindItem(clone);
     renumberItems();
+    updateModeState();
+  });
+
+  confirmationInput?.addEventListener("input", async (event) => {
+    if (confirmationIdInput) confirmationIdInput.value = "";
+    confirmationCanSubmit = true;
+    setConfirmationMessage("");
+    if (confirmationResults) {
+      confirmationResults.innerHTML = renderContingent(
+        await search(contingentUrl, event.target.value),
+      );
+    }
+    updateReviewSummary();
+  });
+
+  confirmationResults?.addEventListener("click", async (event) => {
+    const card = event.target.closest(".result-card");
+    if (!card) return;
+
+    confirmationInput.value = card.dataset.label || "";
+    confirmationIdInput.value = card.dataset.id || "";
+    confirmationResults.innerHTML = "";
+    setConfirmationMessage("Mengecek status konfirmasi...", "");
+
+    const status = await getConfirmationStatus(card.dataset.id || "");
+    confirmationCanSubmit = Boolean(status?.can_confirm);
+    if (confirmationCanSubmit) {
+      setConfirmationMessage("Kontingen bisa melakukan konfirmasi Tidak Ada Complain.", "success");
+    } else {
+      setConfirmationMessage(status?.message || "Kontingen belum bisa melakukan konfirmasi.", "error");
+    }
+    updateReviewSummary();
+    updateStepState();
   });
 
   eventSelect?.addEventListener("change", () => {
     itemsBox.querySelectorAll(".complaint-item").forEach(resetSearches);
+    resetConfirmationSearch();
     refreshStepVisibility();
     updateReviewSummary();
+  });
+
+  modeRadios.forEach((radio) => {
+    radio.addEventListener("change", updateModeState);
   });
 
   form.querySelector('[name="official_name"]')?.addEventListener("input", updateReviewSummary);
@@ -419,10 +551,17 @@
         return;
       }
     }
+
+    if (getSubmissionMode() === "no_complaint" && !confirmationCanSubmit) {
+      event.preventDefault();
+      showStep(1);
+      confirmationMessage?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   });
 
   itemsBox.querySelectorAll(".complaint-item").forEach(bindItem);
   renumberItems();
+  updateModeState();
   refreshStepVisibility();
   updateReviewSummary();
   showStep(eventSelect?.value ? 1 : 0);

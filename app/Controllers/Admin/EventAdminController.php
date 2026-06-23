@@ -5,6 +5,9 @@ namespace App\Controllers\Admin;
 use App\Controllers\BaseController;
 use App\Models\EventModel;
 use App\Services\ParticipantSyncService;
+use CodeIgniter\Encryption\Exceptions\EncryptionException;
+use Config\Database;
+use RuntimeException;
 
 class EventAdminController extends BaseController
 {
@@ -52,8 +55,94 @@ class EventAdminController extends BaseController
     public function sync(int $id)
     {
         if ($r = $this->guard()) return $r;
-        $counts = (new ParticipantSyncService())->sync($id, (bool)$this->request->getGet('fresh'));
-        return redirect()->back()->with('success', 'Sync selesai: ' . json_encode($counts));
+        try {
+            $counts = (new ParticipantSyncService())->sync($id, false);
+            return redirect()->back()->with(
+                'success',
+                sprintf(
+                    'Sync data selesai. Kontingen: %s, Peserta Tanding: %s, Peserta Seni: %s.',
+                    number_format((int) ($counts['contingents'] ?? 0), 0, ',', '.'),
+                    number_format((int) ($counts['tanding'] ?? 0), 0, ',', '.'),
+                    number_format((int) ($counts['seni'] ?? 0), 0, ',', '.')
+                )
+            );
+        } catch (RuntimeException $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function delete(int $id)
+    {
+        if ($r = $this->guard()) return $r;
+
+        $eventModel = new EventModel();
+        $event = $eventModel->find($id);
+        if (! $event) {
+            return redirect()->to('/admin/events')->with('error', 'Kejuaraan tidak ditemukan.');
+        }
+
+        $db = Database::connect();
+        $reportIds = array_column(
+            $db->table('complaint_reports')
+                ->select('id')
+                ->where('event_id', $id)
+                ->get()
+                ->getResultArray(),
+            'id'
+        );
+
+        $counts = [
+            'items' => 0,
+            'histories' => 0,
+            'reports' => 0,
+            'confirmations' => 0,
+            'participants' => 0,
+            'contingents' => 0,
+        ];
+
+        $db->transStart();
+
+        if ($reportIds !== []) {
+            $db->table('complaint_items')->whereIn('complaint_report_id', $reportIds)->delete();
+            $counts['items'] = $db->affectedRows();
+
+            $db->table('complaint_status_histories')->whereIn('complaint_report_id', $reportIds)->delete();
+            $counts['histories'] = $db->affectedRows();
+        }
+
+        $db->table('complaint_reports')->where('event_id', $id)->delete();
+        $counts['reports'] = $db->affectedRows();
+
+        $db->table('contingent_confirmations')->where('event_id', $id)->delete();
+        $counts['confirmations'] = $db->affectedRows();
+
+        $db->table('participants')->where('event_id', $id)->delete();
+        $counts['participants'] = $db->affectedRows();
+
+        $db->table('contingents')->where('event_id', $id)->delete();
+        $counts['contingents'] = $db->affectedRows();
+
+        $eventModel->delete($id);
+
+        $db->transComplete();
+
+        if (! $db->transStatus()) {
+            return redirect()->to('/admin/events')->with('error', 'Gagal menghapus kejuaraan. Data tidak diubah.');
+        }
+
+        return redirect()->to('/admin/events')->with(
+            'success',
+            sprintf(
+                'Kejuaraan "%s" dihapus beserta %d tiket, %d item complain, %d riwayat status, %d konfirmasi, %d peserta, dan %d kontingen.',
+                $event['name'],
+                $counts['reports'],
+                $counts['items'],
+                $counts['histories'],
+                $counts['confirmations'],
+                $counts['participants'],
+                $counts['contingents']
+            )
+        );
     }
 
     private function eventPayload(): array
@@ -72,7 +161,14 @@ class EventAdminController extends BaseController
             'source_db_name' => $this->request->getPost('source_db_name') ?: 'db_testing_event',
             'source_db_username' => $this->request->getPost('source_db_username') ?: 'root',
         ];
-        if ($password !== '') $payload['source_db_password_encrypted'] = base64_encode($password);
+        if ($password !== '') {
+            try {
+                $payload['source_db_password_encrypted'] = base64_encode(service('encrypter')->encrypt($password));
+            } catch (EncryptionException $e) {
+                throw new RuntimeException('Encryption key belum dikonfigurasi. Jalankan php spark key:generate sebelum menyimpan password DB sumber.', 0, $e);
+            }
+        }
+
         return $payload;
     }
 }

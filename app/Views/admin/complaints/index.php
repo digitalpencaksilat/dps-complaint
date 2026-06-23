@@ -66,7 +66,7 @@ $exportFilename = 'Dashboard Complain - ' . $selectedEventName;
           <th>Status</th>
           <th>Batas Proses</th>
           <th>Dikirim</th>
-          <th class="no-export">Aksi</th>
+          <th class="text-end no-export">Aksi</th>
         </tr>
       </thead>
       <tbody>
@@ -85,18 +85,43 @@ $exportFilename = 'Dashboard Complain - ' . $selectedEventName;
               <?= strtotime($report['sla_due_at']) < time() && ! in_array($report['status'], ['selesai', 'ditolak'], true) ? ' <span class="badge bg-danger">Terlambat</span>' : '' ?>
             </td>
             <td><?= esc($report['submitted_at']) ?></td>
-            <td class="no-export">
-              <a class="btn btn-sm btn-outline-danger" href="<?= base_url('admin/complaints/'.$report['id']) ?>">Detail</a>
+            <td class="text-end text-uppercase no-export">
+              <div class="dropdown">
+                <button class="btn btn-sm btn-danger rounded-pill dropdown-toggle px-3" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                  Aksi
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li>
+                    <a class="dropdown-item" href="<?= base_url('admin/complaints/'.$report['id']) ?>">
+                      <i class="fas fa-eye me-2"></i>Detail
+                    </a>
+                  </li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                    <form
+                      method="post"
+                      action="<?= base_url('admin/complaints/'.$report['id'].'/delete') ?>"
+                      data-confirm="true"
+                      data-confirm-title="Hapus complain?"
+                      data-confirm-text="Complain <?= esc($report['ticket_code'], 'attr') ?> akan dihapus. Data item dan riwayat status ikut terhapus."
+                      data-confirm-button="Hapus"
+                    >
+                      <?= csrf_field() ?>
+                      <button class="dropdown-item text-danger" type="submit">
+                        <i class="fas fa-trash-alt me-2"></i>Hapus
+                      </button>
+                    </form>
+                  </li>
+                </ul>
+              </div>
             </td>
           </tr>
         <?php endforeach; ?>
-        <?php if(empty($reports)): ?>
-          <tr>
-            <td colspan="8" class="text-center text-muted py-4">Belum ada complain sesuai filter.</td>
-          </tr>
-        <?php endif; ?>
       </tbody>
     </table>
+    <?php if(empty($reports)): ?>
+      <div class="datatable-empty-message text-center text-muted py-4">Belum ada complain sesuai filter.</div>
+    <?php endif; ?>
   </div>
 
 </div>

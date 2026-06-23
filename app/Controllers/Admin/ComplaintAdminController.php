@@ -6,6 +6,8 @@ use App\Controllers\BaseController;
 use App\Models\ComplaintItemModel;
 use App\Models\ComplaintReportModel;
 use App\Models\ComplaintStatusHistoryModel;
+use App\Models\ContingentConfirmationModel;
+use App\Models\ContingentModel;
 use App\Models\EventModel;
 use App\Services\ComplaintStatusService;
 
@@ -88,6 +90,47 @@ class ComplaintAdminController extends BaseController
             ->setBody(view('admin/complaints/report_excel', ['rows' => $rows]));
     }
 
+    public function contingents()
+    {
+        if ($redirect = $this->guard()) return $redirect;
+
+        $filters = $this->contingentFilters();
+        $rows = $this->contingentRows($filters);
+
+        return view('admin/complaints/contingents', [
+            'rows' => $rows,
+            'events' => (new EventModel())->orderBy('name', 'ASC')->findAll(),
+            'filters' => $filters,
+            'counts' => $this->contingentCounts($rows),
+        ]);
+    }
+
+    public function contingentsPrint()
+    {
+        if ($redirect = $this->guard()) return $redirect;
+
+        $filters = $this->contingentFilters();
+
+        return view('admin/complaints/contingents_print', [
+            'rows' => $this->contingentRows($filters),
+            'filters' => $filters,
+            'generatedAt' => date('Y-m-d H:i:s'),
+        ]);
+    }
+
+    public function contingentsExcel()
+    {
+        if ($redirect = $this->guard()) return $redirect;
+
+        $rows = $this->contingentRows($this->contingentFilters());
+        $filename = 'konfirmasi-kontingen-' . date('Ymd-His') . '.xls';
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/vnd.ms-excel; charset=UTF-8')
+            ->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"')
+            ->setBody(view('admin/complaints/contingents_excel', ['rows' => $rows]));
+    }
+
     public function show(int $id)
     {
         if ($redirect = $this->guard()) return $redirect;
@@ -119,6 +162,30 @@ class ComplaintAdminController extends BaseController
         return redirect()->back()->with('success', 'Status diperbarui.');
     }
 
+    public function delete(int $id)
+    {
+        if ($redirect = $this->guard()) return $redirect;
+
+        $reportModel = new ComplaintReportModel();
+        $report = $reportModel->find($id);
+        if (! $report) {
+            return redirect()->back()->with('error', 'Data complain tidak ditemukan.');
+        }
+
+        $db = db_connect();
+        $db->transStart();
+        (new ComplaintItemModel())->where('complaint_report_id', $id)->delete();
+        (new ComplaintStatusHistoryModel())->where('complaint_report_id', $id)->delete();
+        $reportModel->delete($id);
+        $db->transComplete();
+
+        if (! $db->transStatus()) {
+            return redirect()->back()->with('error', 'Gagal menghapus complain.');
+        }
+
+        return redirect()->to('/admin/complaints')->with('success', 'Complain ' . ($report['ticket_code'] ?? '') . ' berhasil dihapus.');
+    }
+
     public function export()
     {
         if ($redirect = $this->guard()) return $redirect;
@@ -127,20 +194,24 @@ class ComplaintAdminController extends BaseController
             'event_id' => $this->request->getGet('event_id'),
             'status' => $this->request->getGet('status'),
         ]);
-        $csv = "ticket,event,official,phone,status,submitted_at,sla_due_at\n";
+        $handle = fopen('php://temp', 'r+');
+        fputcsv($handle, ['ticket', 'event', 'official', 'phone', 'status', 'submitted_at', 'sla_due_at']);
 
         foreach ($reports as $report) {
-            $csv .= sprintf(
-                "%s,%s,%s,%s,%s,%s,%s\n",
-                $report['ticket_code'],
-                $report['event_name'],
-                $report['official_name'],
-                $report['official_phone'],
-                $report['status'],
-                $report['submitted_at'],
-                $report['sla_due_at'],
-            );
+            fputcsv($handle, [
+                $report['ticket_code'] ?? '',
+                $report['event_name'] ?? '',
+                $report['official_name'] ?? '',
+                $report['official_phone'] ?? '',
+                $report['status'] ?? '',
+                $report['submitted_at'] ?? '',
+                $report['sla_due_at'] ?? '',
+            ]);
         }
+
+        rewind($handle);
+        $csv = stream_get_contents($handle) ?: '';
+        fclose($handle);
 
         return $this->response
             ->setHeader('Content-Type', 'text/csv')
@@ -192,5 +263,79 @@ class ComplaintAdminController extends BaseController
         }
 
         return $rows;
+    }
+
+    private function contingentFilters(): array
+    {
+        return [
+            'event_id' => $this->request->getGet('event_id'),
+            'status' => $this->request->getGet('status'),
+            'contingent' => trim((string) $this->request->getGet('contingent')),
+        ];
+    }
+
+    private function contingentRows(array $filters): array
+    {
+        $builder = (new ContingentModel())
+            ->select('contingents.*, events.name AS event_name')
+            ->join('events', 'events.id = contingents.event_id', 'left')
+            ->orderBy('events.name', 'ASC')
+            ->orderBy('contingents.name', 'ASC');
+
+        if (! empty($filters['event_id'])) {
+            $builder->where('contingents.event_id', (int) $filters['event_id']);
+        }
+
+        if (! empty($filters['contingent'])) {
+            $builder->like('contingents.name', $filters['contingent']);
+        }
+
+        $confirmations = [];
+        foreach ((new ContingentConfirmationModel())->findAll() as $confirmation) {
+            $key = (int) $confirmation['event_id'] . ':' . (int) $confirmation['contingent_id'];
+            $confirmations[$key] = $confirmation;
+        }
+
+        $rows = [];
+        foreach ($builder->findAll() as $contingent) {
+            $key = (int) $contingent['event_id'] . ':' . (int) $contingent['id'];
+            $confirmation = $confirmations[$key] ?? null;
+            $row = [
+                'event_id' => (int) $contingent['event_id'],
+                'event_name' => $contingent['event_name'] ?? '-',
+                'contingent_id' => (int) $contingent['id'],
+                'contingent_name' => $contingent['name'] ?? '-',
+                'source_contingent_id' => $contingent['source_contingent_id'] ?? '-',
+                'status' => $confirmation ? 'confirmed' : 'unconfirmed',
+                'status_label' => $confirmation ? 'Tidak Ada Complain' : 'Tidak Ada Konfirmasi',
+                'confirmation_code' => $confirmation['confirmation_code'] ?? '-',
+                'official_name' => $confirmation['official_name'] ?? '-',
+                'official_phone' => $confirmation['official_phone'] ?? '-',
+                'signature_image' => $confirmation['signature_image'] ?? '',
+                'confirmed_at' => $confirmation['confirmed_at'] ?? '-',
+            ];
+
+            if (! empty($filters['status']) && $filters['status'] !== $row['status']) {
+                continue;
+            }
+
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    private function contingentCounts(array $rows): array
+    {
+        $counts = ['total' => count($rows), 'confirmed' => 0, 'unconfirmed' => 0];
+        foreach ($rows as $row) {
+            if (($row['status'] ?? '') === 'confirmed') {
+                $counts['confirmed']++;
+            } else {
+                $counts['unconfirmed']++;
+            }
+        }
+
+        return $counts;
     }
 }

@@ -20,6 +20,10 @@ body.admin-body {
   min-height: 100vh;
 }
 
+body.admin-sidebar-mini {
+  --admin-sidebar-width: 86px;
+}
+
 .admin-sidebar {
   width: 280px;
   padding: 24px 18px;
@@ -32,7 +36,13 @@ body.admin-body {
   inset: 0 auto 0 0;
   z-index: 1040;
   overflow-y: auto;
-  transition: transform 0.24s ease;
+  transition: width 0.24s ease, padding 0.24s ease, transform 0.24s ease;
+}
+
+body.admin-sidebar-mini .admin-sidebar {
+  width: 86px;
+  padding-inline: 12px;
+  overflow-x: hidden;
 }
 
 .admin-overlay {
@@ -53,6 +63,10 @@ body.admin-body {
   border-radius: 20px;
   background: #fff;
   border: 1px solid rgba(198, 0, 0, 0.08);
+}
+
+.admin-brand-copy {
+  min-width: 0;
 }
 
 .admin-brand-logo {
@@ -79,6 +93,35 @@ body.admin-body {
 .admin-brand-subtitle,
 .muted-copy {
   color: var(--admin-muted);
+}
+
+.admin-sidebar-collapse {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 42px;
+  border: 1px solid rgba(198, 0, 0, 0.12);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--brand-primary);
+  font-weight: 700;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.admin-sidebar-collapse:hover,
+.admin-sidebar-collapse:focus {
+  background: rgba(198, 0, 0, 0.08);
+  color: #8f0b14;
+  border-color: rgba(198, 0, 0, 0.24);
+}
+
+.admin-sidebar-collapse i {
+  transition: transform 0.24s ease;
+}
+
+body.admin-sidebar-mini .admin-sidebar-collapse i {
+  transform: rotate(180deg);
 }
 
 .admin-section-label {
@@ -116,12 +159,51 @@ body.admin-body {
   gap: 12px;
 }
 
+.admin-nav-link i {
+  width: 22px;
+  text-align: center;
+  flex: 0 0 22px;
+}
+
+body.admin-sidebar-mini .admin-brand {
+  justify-content: center;
+  padding-inline: 8px;
+}
+
+body.admin-sidebar-mini .admin-brand-logo {
+  width: 46px;
+  height: 46px;
+}
+
+body.admin-sidebar-mini .admin-brand-copy,
+body.admin-sidebar-mini .admin-section-label,
+body.admin-sidebar-mini .admin-sidebar-collapse span,
+body.admin-sidebar-mini .admin-nav-link .label-block span {
+  display: none;
+}
+
+body.admin-sidebar-mini .admin-nav-link,
+body.admin-sidebar-mini .admin-sidebar-collapse {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+body.admin-sidebar-mini .admin-nav-link .label-block {
+  justify-content: center;
+  gap: 0;
+}
+
 .admin-main {
   flex: 1;
   min-width: 0;
   margin-left: 280px;
   padding: 20px;
   background: var(--bg-color);
+  transition: margin-left 0.24s ease;
+}
+
+body.admin-sidebar-mini .admin-main {
+  margin-left: 86px;
 }
 
 .admin-topbar,
@@ -261,12 +343,49 @@ body.admin-body {
   gap: 0.5rem;
 }
 
+.admin-table-wrap,
+.table-responsive {
+  position: relative;
+}
+
+.admin-dropdown-portal {
+  min-width: 11rem;
+  box-shadow: 0 18px 42px rgba(74, 17, 23, 0.16);
+}
+
 .admin-table-wrap .dt-button,
 .admin-table-wrap .buttons-html5,
 .admin-table-wrap .buttons-print,
 .admin-table-wrap .buttons-colvis {
   border-radius: 999px !important;
   padding-inline: 1rem !important;
+}
+
+.admin-table-wrap .dt-buttons .btn,
+.admin-table-wrap .dt-buttons .dt-button,
+.admin-table-wrap .dt-buttons .buttons-html5,
+.admin-table-wrap .dt-buttons .buttons-print,
+.admin-table-wrap .dt-buttons .buttons-colvis,
+.admin-table-wrap .dt-buttons .buttons-colvis:hover,
+.admin-table-wrap .dt-buttons .buttons-colvis:focus,
+.admin-table-wrap .dt-buttons .buttons-colvis:active,
+.admin-table-wrap .dt-buttons .buttons-colvis.show,
+.admin-table-wrap .dt-buttons .buttons-colvis.active {
+  color: #fff !important;
+}
+
+.admin-table-wrap .dt-buttons .buttons-colvis {
+  background: var(--brand-primary) !important;
+  border-color: var(--brand-primary) !important;
+}
+
+.admin-table-wrap .dt-buttons .buttons-colvis:hover,
+.admin-table-wrap .dt-buttons .buttons-colvis:focus,
+.admin-table-wrap .dt-buttons .buttons-colvis:active,
+.admin-table-wrap .dt-buttons .buttons-colvis.show,
+.admin-table-wrap .dt-buttons .buttons-colvis.active {
+  background: #a00000 !important;
+  border-color: #a00000 !important;
 }
 
 .admin-search .dataTables_filter label {
@@ -363,6 +482,31 @@ body.admin-body {
     width: min(82vw, 310px);
     border-right-width: 3px;
     box-shadow: 18px 0 42px rgba(17, 24, 39, 0.24);
+  }
+
+  body.admin-sidebar-mini .admin-sidebar {
+    width: min(82vw, 310px);
+    padding: 24px 18px;
+  }
+
+  body.admin-sidebar-mini .admin-brand {
+    justify-content: flex-start;
+    padding: 14px;
+  }
+
+  body.admin-sidebar-mini .admin-brand-logo {
+    width: 54px;
+    height: 54px;
+  }
+
+  body.admin-sidebar-mini .admin-brand-copy,
+  body.admin-sidebar-mini .admin-section-label,
+  body.admin-sidebar-mini .admin-nav-link .label-block span {
+    display: block;
+  }
+
+  .admin-sidebar-collapse {
+    display: none;
   }
 
   body.sidebar-open .admin-sidebar {

@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Login Admin - DPS Complain</title>
+  <link rel="icon" type="image/x-icon" href="<?= base_url('favicon.ico') ?>">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -24,8 +25,9 @@
         </div>
 
         <?php if (session('error')): ?>
-          <div class="alert alert-danger rounded-4">
+          <div class="alert alert-danger alert-dismissible fade show rounded-4" role="alert">
             <?= esc(session('error')) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
           </div>
         <?php endif; ?>
 

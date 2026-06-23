@@ -8,10 +8,14 @@ class InitialSeeder extends Seeder
 {
     public function run()
     {
+        if (ENVIRONMENT === 'production') {
+            throw new \RuntimeException('InitialSeeder tidak boleh dijalankan di production karena berisi data contoh. Buat admin production dengan password unik melalui database/command terpisah.');
+        }
+
         $now = date('Y-m-d H:i:s');
         $this->db->table('admins')->ignore(true)->insert([
             'username' => 'admin',
-            'password_hash' => password_hash('admin123', PASSWORD_DEFAULT),
+            'password_hash' => password_hash('AdminLocal123!', PASSWORD_DEFAULT),
             'name' => 'Admin Panitia',
             'created_at' => $now,
             'updated_at' => $now,

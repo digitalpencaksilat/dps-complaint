@@ -37,6 +37,35 @@
     'summary-table': { fontSize: '10px', tableWidth: '100%', orientation: 'portrait' },
   };
 
+  function normalizeEmptyBodyRows(selector) {
+    $(selector).each(function () {
+      var table = this;
+      var columnCount = $(table).find('thead th').length;
+      if (!columnCount) return;
+
+      $(table)
+        .find('tbody tr')
+        .each(function () {
+          var $row = $(this);
+          var cells = $row.children('td, th');
+          if (cells.length !== 1) return;
+
+          var $cell = cells.eq(0);
+          var colspan = parseInt($cell.attr('colspan') || '1', 10);
+          if (colspan === columnCount) return;
+
+          $cell.attr('colspan', columnCount);
+        });
+    });
+  }
+
+  function syncExternalEmptyMessage(selector, tableApi) {
+    var $message = $(selector).closest('.admin-table-wrap').find('.datatable-empty-message');
+    if (!$message.length) return;
+
+    $message.toggle(tableApi.rows().data().length === 0);
+  }
+
   window.dpsReportPrintCustomize = function (win, opts) {
     opts = opts || {};
     var $win = $(win.document);
@@ -132,6 +161,8 @@
   window.initAdminExportTable = function (selector, config) {
     config = config || {};
     if (!$(selector).length || !$.fn.DataTable) return null;
+
+    normalizeEmptyBodyRows(selector);
 
     var preset = presets[config.preset] || presets['simple-list'];
     var title = config.title || document.title || 'Data Export';
@@ -289,7 +320,7 @@
       }
     }
 
-    return initFallbackDataTable(
+    var tableApi = initFallbackDataTable(
       selector,
       Object.assign(
         {
@@ -302,5 +333,9 @@
         config.dataTable || {},
       ),
     );
+
+    syncExternalEmptyMessage(selector, tableApi);
+    return tableApi;
   };
 })();
+

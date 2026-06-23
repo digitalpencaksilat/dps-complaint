@@ -10,6 +10,7 @@ $oldItems = old('items') ?: [[
     'contingent_label' => '',
     'description' => '',
 ]];
+$submissionMode = old('submission_mode') ?: 'complaint';
 ?>
 
 <section class="public-shell">
@@ -19,21 +20,20 @@ $oldItems = old('items') ?: [[
         <div class="complaint-card complaint-form-card">
           <div class="complaint-card-header complaint-hero">
             <div>
-              <div class="eyebrow mb-2">Layanan Koreksi Data Kejuaraan</div>
+              <div class="eyebrow mb-2">Koreksi Data Kejuaraan</div>
               <h1 class="complaint-title mb-2">Form Complain Peserta</h1>
               <p class="mb-0">
-                Isi complain mengikuti langkah agar data kejuaraan, item, dan official tidak tertukar.
+                Pilih kejuaraan, isi data, lalu kirim complain.
               </p>
-            </div>
-            <div class="hero-badge">
-              <i class="fas fa-shield-alt"></i>
-              <span>Data import panitia</span>
             </div>
           </div>
 
           <div class="card-body p-3 p-lg-5">
             <?php if(session('error')): ?>
-              <div class="alert alert-danger rounded-4 mb-4"><?= esc(session('error')) ?></div>
+              <div class="alert alert-danger alert-dismissible fade show rounded-4 mb-4" role="alert">
+                <?= esc(session('error')) ?>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
+              </div>
             <?php endif; ?>
 
             <form
@@ -42,6 +42,7 @@ $oldItems = old('items') ?: [[
               id="complaintForm"
               data-participant-url="<?= base_url('api/participants/search') ?>"
               data-contingent-url="<?= base_url('api/contingents/search') ?>"
+              data-confirmation-status-url="<?= base_url('api/contingents/confirmation-status') ?>"
             >
               <?= csrf_field() ?>
 
@@ -60,7 +61,7 @@ $oldItems = old('items') ?: [[
                   <li class="nav-item" role="presentation">
                     <button class="nav-link" type="button" data-complaint-step-target="1">
                       <span class="step-chip">2</span>
-                      <span>Item Complain</span>
+                      <span>Status Data</span>
                     </button>
                   </li>
                   <li class="nav-item" role="presentation">
@@ -102,14 +103,14 @@ $oldItems = old('items') ?: [[
                       </select>
 
                       <div class="event-helper mt-3">
-                        <i class="fas fa-circle-info me-1"></i>Pilih kejuaraan dulu untuk membuka daftar item complain.
+                        <i class="fas fa-circle-info me-1"></i>Pilih kejuaraan dulu untuk membuka status data kontingen.
                       </div>
                     </div>
                   </div>
 
                   <div class="complaint-step-actions justify-content-end">
                     <button type="button" class="btn btn-dps px-4" data-step-next>
-                      Lanjut ke Item Complain <i class="fas fa-arrow-right ms-1"></i>
+                      Lanjut ke Status Data <i class="fas fa-arrow-right ms-1"></i>
                     </button>
                   </div>
                 </div>
@@ -118,105 +119,159 @@ $oldItems = old('items') ?: [[
                   <div class="form-step-card mb-4">
                     <div class="step-marker">2</div>
                     <div class="flex-grow-1">
-                      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
-                        <div>
-                          <h3 class="h5 mb-1">Daftar Item Complain</h3>
-                          <p class="text-muted mb-0 small">
-                            Tambah item jika official komplain lebih dari satu peserta atau masalah.
-                          </p>
-                        </div>
-                        <button type="button" class="btn btn-outline-danger rounded-pill" id="addComplaintItem">
-                          <i class="fas fa-plus me-1"></i>Tambah Item
-                        </button>
+                      <div class="mb-3">
+                        <h3 class="h5 mb-1">Pilih Status Data Kontingen</h3>
+                        <p class="text-muted mb-0 small">
+                          Pilih ada complain jika data perlu dikoreksi, atau tidak ada complain jika data kontingen sudah sesuai.
+                        </p>
                       </div>
 
-                      <div id="complaintItems" class="complaint-items">
-                        <?php foreach($oldItems as $i => $item): ?>
-                          <?php $type = $item['complaint_type'] ?? 'name_error'; ?>
-                          <div class="complaint-item" data-index="<?= (int)$i ?>">
-                            <div class="complaint-item-head">
-                              <div>
-                                <span class="item-count">Complain #<?= (int)$i + 1 ?></span>
-                                <h4 class="h6 mb-0">Data yang dikomplain</h4>
-                              </div>
-                              <button
-                                type="button"
-                                class="btn btn-sm btn-outline-secondary rounded-pill remove-item <?= count($oldItems) === 1 ? 'd-none' : '' ?>"
-                              >
-                                Hapus
-                              </button>
-                            </div>
+                      <div class="complaint-mode-options mb-4">
+                        <label class="complaint-mode-card <?= $submissionMode === 'complaint' ? 'active' : '' ?>">
+                          <input type="radio" name="submission_mode" value="complaint" <?= $submissionMode === 'complaint' ? 'checked' : '' ?>>
+                          <span class="mode-icon text-danger"><i class="fas fa-triangle-exclamation"></i></span>
+                          <span>
+                            <strong>Ada Complain</strong>
+                            <small>Official mengajukan koreksi data peserta/kontingen.</small>
+                          </span>
+                        </label>
+                        <label class="complaint-mode-card <?= $submissionMode === 'no_complaint' ? 'active' : '' ?>">
+                          <input type="radio" name="submission_mode" value="no_complaint" <?= $submissionMode === 'no_complaint' ? 'checked' : '' ?>>
+                          <span class="mode-icon text-success"><i class="fas fa-circle-check"></i></span>
+                          <span>
+                            <strong>Tidak Ada Complain</strong>
+                            <small>Official menyatakan data atlet kontingen sudah sesuai.</small>
+                          </span>
+                        </label>
+                      </div>
 
-                            <div class="row g-3">
-                              <div class="col-lg-4">
-                                <label class="form-label">Jenis Complain</label>
-                                <select
-                                  class="form-select complaint-type"
-                                  name="items[<?= (int)$i ?>][complaint_type]"
-                                  required
-                                >
-                                  <option value="name_error" <?= $type === 'name_error' ? 'selected' : '' ?>>Kesalahan Nama</option>
-                                  <option value="gender_error" <?= $type === 'gender_error' ? 'selected' : '' ?>>Kesalahan Jenis Kelamin</option>
-                                  <option value="category_error" <?= $type === 'category_error' ? 'selected' : '' ?>>Kesalahan Kategori Yang Diikuti</option>
-                                  <option value="missing_participant" <?= $type === 'missing_participant' ? 'selected' : '' ?>>Tidak Ada Peserta</option>
-                                </select>
-                              </div>
-
-                              <div class="col-lg-8">
-                                <div class="entity-search participant-search-box">
-                                  <label class="form-label">Cari Peserta</label>
-                                  <input
-                                    type="text"
-                                    class="form-control search-input participant-search"
-                                    name="items[<?= (int)$i ?>][participant_label]"
-                                    value="<?= esc($item['participant_label'] ?? '') ?>"
-                                    placeholder="Ketik minimal 2 huruf nama peserta atau kontingen"
-                                    autocomplete="off"
-                                  >
-                                  <input
-                                    type="hidden"
-                                    name="items[<?= (int)$i ?>][participant_id]"
-                                    value="<?= esc($item['participant_id'] ?? '') ?>"
-                                    class="participant-id"
-                                  >
-                                  <div class="search-results mt-2 participant-results"></div>
-                                </div>
-
-                                <div class="entity-search contingent-search-box d-none">
-                                  <label class="form-label">Cari Kontingen</label>
-                                  <input
-                                    type="text"
-                                    class="form-control search-input contingent-search"
-                                    name="items[<?= (int)$i ?>][contingent_label]"
-                                    value="<?= esc($item['contingent_label'] ?? '') ?>"
-                                    placeholder="Ketik minimal 2 huruf nama kontingen"
-                                    autocomplete="off"
-                                  >
-                                  <input
-                                    type="hidden"
-                                    name="items[<?= (int)$i ?>][contingent_id]"
-                                    value="<?= esc($item['contingent_id'] ?? '') ?>"
-                                    class="contingent-id"
-                                  >
-                                  <div class="search-results mt-2 contingent-results"></div>
-                                </div>
-                              </div>
-
-                              <div class="col-12">
-                                <label class="form-label">Keterangan</label>
-                                <div class="description-helper mb-2 small"></div>
-                                <textarea
-                                  class="form-control complaint-description"
-                                  name="items[<?= (int)$i ?>][description]"
-                                  rows="4"
-                                  minlength="10"
-                                  required
-                                  placeholder="Jelaskan complain dengan jelas."
-                                ><?= esc($item['description'] ?? '') ?></textarea>
-                              </div>
-                            </div>
+                      <div data-mode-panel="complaint">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                          <div>
+                            <h4 class="h6 mb-1">Daftar Item Complain</h4>
+                            <p class="text-muted mb-0 small">
+                              Tambah item jika official komplain lebih dari satu peserta atau masalah.
+                            </p>
                           </div>
-                        <?php endforeach; ?>
+                          <button type="button" class="btn btn-outline-danger rounded-pill" id="addComplaintItem">
+                            <i class="fas fa-plus me-1"></i>Tambah Item
+                          </button>
+                        </div>
+
+                        <div id="complaintItems" class="complaint-items">
+                          <?php foreach($oldItems as $i => $item): ?>
+                            <?php $type = $item['complaint_type'] ?? 'name_error'; ?>
+                            <div class="complaint-item" data-index="<?= (int)$i ?>">
+                              <div class="complaint-item-head">
+                                <div>
+                                  <span class="item-count">Complain #<?= (int)$i + 1 ?></span>
+                                  <h4 class="h6 mb-0">Data yang dikomplain</h4>
+                                </div>
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-outline-secondary rounded-pill remove-item <?= count($oldItems) === 1 ? 'd-none' : '' ?>"
+                                >
+                                  Hapus
+                                </button>
+                              </div>
+
+                              <div class="row g-3">
+                                <div class="col-lg-4">
+                                  <label class="form-label">Jenis Complain</label>
+                                  <select
+                                    class="form-select complaint-type"
+                                    name="items[<?= (int)$i ?>][complaint_type]"
+                                    required
+                                  >
+                                    <option value="name_error" <?= $type === 'name_error' ? 'selected' : '' ?>>Kesalahan Nama</option>
+                                    <option value="gender_error" <?= $type === 'gender_error' ? 'selected' : '' ?>>Kesalahan Jenis Kelamin</option>
+                                    <option value="category_error" <?= $type === 'category_error' ? 'selected' : '' ?>>Kesalahan Kategori Yang Diikuti</option>
+                                    <option value="missing_participant" <?= $type === 'missing_participant' ? 'selected' : '' ?>>Tidak Ada Peserta</option>
+                                  </select>
+                                </div>
+
+                                <div class="col-lg-8">
+                                  <div class="entity-search participant-search-box">
+                                    <label class="form-label">Cari Peserta</label>
+                                    <input
+                                      type="text"
+                                      class="form-control search-input participant-search"
+                                      name="items[<?= (int)$i ?>][participant_label]"
+                                      value="<?= esc($item['participant_label'] ?? '') ?>"
+                                      placeholder="Ketik minimal 2 huruf nama peserta atau kontingen"
+                                      autocomplete="off"
+                                    >
+                                    <input
+                                      type="hidden"
+                                      name="items[<?= (int)$i ?>][participant_id]"
+                                      value="<?= esc($item['participant_id'] ?? '') ?>"
+                                      class="participant-id"
+                                    >
+                                    <div class="search-results mt-2 participant-results"></div>
+                                  </div>
+
+                                  <div class="entity-search contingent-search-box d-none">
+                                    <label class="form-label">Cari Kontingen</label>
+                                    <input
+                                      type="text"
+                                      class="form-control search-input contingent-search"
+                                      name="items[<?= (int)$i ?>][contingent_label]"
+                                      value="<?= esc($item['contingent_label'] ?? '') ?>"
+                                      placeholder="Ketik minimal 2 huruf nama kontingen"
+                                      autocomplete="off"
+                                    >
+                                    <input
+                                      type="hidden"
+                                      name="items[<?= (int)$i ?>][contingent_id]"
+                                      value="<?= esc($item['contingent_id'] ?? '') ?>"
+                                      class="contingent-id"
+                                    >
+                                    <div class="search-results mt-2 contingent-results"></div>
+                                  </div>
+                                </div>
+
+                                <div class="col-12">
+                                  <label class="form-label">Keterangan</label>
+                                  <div class="description-helper mb-2 small"></div>
+                                  <textarea
+                                    class="form-control complaint-description"
+                                    name="items[<?= (int)$i ?>][description]"
+                                    rows="4"
+                                    minlength="10"
+                                    required
+                                    placeholder="Jelaskan complain dengan jelas."
+                                  ><?= esc($item['description'] ?? '') ?></textarea>
+                                </div>
+                              </div>
+                            </div>
+                          <?php endforeach; ?>
+                        </div>
+                      </div>
+
+                      <div class="confirmation-panel" data-mode-panel="no_complaint">
+                        <div class="confirmation-statement mb-3">
+                          <i class="fas fa-circle-check me-2"></i>
+                          Saya menyatakan data atlet kontingen sudah sesuai dengan data kejuaraan.
+                        </div>
+                        <div class="entity-search confirmation-contingent-search-box">
+                          <label class="form-label">Cari Kontingen</label>
+                          <input
+                            type="text"
+                            class="form-control search-input confirmation-contingent-search"
+                            name="confirmation_contingent_label"
+                            value="<?= esc(old('confirmation_contingent_label')) ?>"
+                            placeholder="Ketik minimal 2 huruf nama kontingen"
+                            autocomplete="off"
+                          >
+                          <input
+                            type="hidden"
+                            name="confirmation_contingent_id"
+                            value="<?= esc(old('confirmation_contingent_id')) ?>"
+                            class="confirmation-contingent-id"
+                          >
+                          <div class="search-results mt-2 confirmation-contingent-results"></div>
+                          <div class="confirmation-status-message mt-3 small" data-confirmation-status-message></div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -283,7 +338,7 @@ $oldItems = old('items') ?: [[
                     <div class="flex-grow-1">
                       <h3 class="h5 mb-3">Review & Kirim</h3>
                       <p class="text-muted small mb-4">
-                        Cek kembali ringkasan data sebelum tiket complain dibuat.
+                        Cek kembali ringkasan data sebelum data dikirim.
                       </p>
 
                       <div class="complaint-review-grid">
@@ -292,7 +347,7 @@ $oldItems = old('items') ?: [[
                           <strong data-review-event>-</strong>
                         </div>
                         <div class="complaint-review-card">
-                          <span>Total Item</span>
+                          <span>Status Data</span>
                           <strong data-review-total-items>0 item</strong>
                         </div>
                         <div class="complaint-review-card">
@@ -318,9 +373,9 @@ $oldItems = old('items') ?: [[
                     </button>
                     <div class="submit-bar-note">
                       <strong>Pastikan semua data sudah terisi.</strong>
-                      <div class="small text-muted">Tiket complain dibuat setelah form lengkap dan tersimpan.</div>
+                      <div class="small text-muted" data-submit-note>Tiket complain dibuat setelah form lengkap dan tersimpan.</div>
                     </div>
-                    <button class="btn btn-dps px-5 py-3" type="submit">Simpan Complain</button>
+                    <button class="btn btn-dps px-5 py-3" type="submit" data-submit-button>Simpan Complain</button>
                   </div>
                 </div>
               </div>

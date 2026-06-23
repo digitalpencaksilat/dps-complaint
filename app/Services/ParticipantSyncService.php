@@ -3,9 +3,12 @@
 namespace App\Services;
 
 use App\Models\ContingentModel;
+use App\Models\ComplaintReportModel;
+use App\Models\ContingentConfirmationModel;
 use App\Models\EventModel;
 use App\Models\ParticipantModel;
 use CodeIgniter\Database\Config;
+use CodeIgniter\Encryption\Exceptions\EncryptionException;
 use RuntimeException;
 
 class ParticipantSyncService
@@ -18,6 +21,12 @@ class ParticipantSyncService
         $contingents = new ContingentModel();
         $participants = new ParticipantModel();
         if ($fresh) {
+            $hasComplaints = (new ComplaintReportModel())->where('event_id', $eventId)->countAllResults() > 0;
+            $hasConfirmations = (new ContingentConfirmationModel())->where('event_id', $eventId)->countAllResults() > 0;
+            if ($hasComplaints || $hasConfirmations) {
+                throw new RuntimeException('Fresh sync ditolak karena event sudah memiliki data complain atau konfirmasi kontingen. Gunakan sync normal agar data bukti tetap aman.');
+            }
+
             $participants->where('event_id', $eventId)->delete();
             $contingents->where('event_id', $eventId)->delete();
         }
@@ -50,16 +59,34 @@ class ParticipantSyncService
             'DSN' => '',
             'hostname' => $event['source_db_host'] ?: '127.0.0.1',
             'username' => $event['source_db_username'] ?: 'root',
-            'password' => $event['source_db_password_encrypted'] ? base64_decode($event['source_db_password_encrypted']) : '',
+            'password' => $this->sourceDbPassword($event['source_db_password_encrypted'] ?? null),
             'database' => $event['source_db_name'] ?: 'db_testing_event',
             'DBDriver' => 'MySQLi',
             'DBPrefix' => '',
             'pConnect' => false,
-            'DBDebug' => true,
+            'DBDebug' => ENVIRONMENT !== 'production',
             'charset' => 'utf8mb4',
             'DBCollat' => 'utf8mb4_general_ci',
         ];
         return Config::connect($config, false);
+    }
+
+    private function sourceDbPassword(?string $encryptedPassword): string
+    {
+        if (empty($encryptedPassword)) {
+            return '';
+        }
+
+        try {
+            $ciphertext = base64_decode($encryptedPassword, true);
+            if ($ciphertext === false) {
+                throw new EncryptionException('Ciphertext source DB password tidak valid.');
+            }
+
+            return service('encrypter')->decrypt($ciphertext);
+        } catch (EncryptionException $e) {
+            throw new RuntimeException('Password DB sumber tidak bisa dibuka. Pastikan encryption key production sama dengan key saat password disimpan.', 0, $e);
+        }
     }
 
     private function upsertParticipant(int $eventId, string $type, array $row): void
